@@ -4,79 +4,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>双人火柴人 · 联网互动</title>
+<title>双人联机 · 火柴人冒险</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    height: 100%;
-    overflow: hidden;
-    background: #1a1a2e;
+    height: 100%; overflow: hidden;
+    background: #0f0f1e;
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+    touch-action: none; user-select: none;
   }
-  canvas { display: block; width: 100%; height: 100%; }
+  canvas { display: block; }
 
   #hud {
     position: fixed; top: 0; left: 0; right: 0;
-    padding: 12px 16px;
+    padding: 10px 16px;
     display: flex; justify-content: space-between; align-items: center;
-    color: #fff; font-size: 14px;
-    background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
-    pointer-events: none;
-    z-index: 10;
+    color: #fff; font-size: 13px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent);
+    pointer-events: none; z-index: 10;
   }
   #status {
-    background: rgba(0,0,0,.5);
     padding: 6px 14px; border-radius: 999px;
-    font-weight: 600; letter-spacing: .5px;
+    background: rgba(0,0,0,.55); font-weight: 600;
   }
-  #status.online { background: rgba(80,220,120,.85); color: #063; }
-  #status.connecting { background: rgba(255,200,60,.85); color: #530; }
-  #roomTag { opacity: .85; }
+  #status.online { background: rgba(70,220,130,.9); color: #053; }
+  #status.connecting { background: rgba(255,200,60,.9); color: #530; }
+  #roomTag { opacity: .8; }
 
   #panel {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(10,10,25,.9);
+    background: rgba(8,8,20,.92);
     backdrop-filter: blur(8px);
-    z-index: 20;
-    padding: 20px;
+    z-index: 20; padding: 20px;
   }
   #panel.hidden { display: none; }
   .box {
-    width: min(420px, 100%);
-    background: #252543;
-    border-radius: 24px;
-    padding: 30px 26px;
+    width: min(400px, 100%);
+    background: #1e1e38;
+    border-radius: 22px;
+    padding: 28px 24px;
     color: #eee;
     box-shadow: 0 30px 70px -20px rgba(0,0,0,.9);
     border: 1px solid rgba(255,255,255,.08);
     text-align: center;
   }
   .box h1 {
-    font-size: 22px; margin-bottom: 6px;
+    font-size: 21px; margin-bottom: 6px;
     background: linear-gradient(135deg,#ff9ecb,#9ecbff);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .box p { font-size: 13px; color: #9a9ab8; margin-bottom: 22px; line-height: 1.6; }
-  .row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .box p { font-size: 13px; color: #9a9ab8; margin-bottom: 20px; line-height: 1.6; }
+  .row { display: flex; gap: 10px; margin-bottom: 12px; }
   input {
     flex: 1; padding: 13px 16px;
-    border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
+    border-radius: 13px; border: 1px solid rgba(255,255,255,.12);
     background: rgba(0,0,0,.3); color: #fff;
     font-size: 16px; outline: none; text-align: center;
     letter-spacing: 2px;
   }
   input:focus { border-color: #ff9ecb; }
   button {
-    padding: 13px 20px; border: none; border-radius: 14px;
+    padding: 13px 18px; border: none; border-radius: 13px;
     font-size: 15px; font-weight: 700; cursor: pointer;
     background: linear-gradient(135deg,#ff8fc0,#b18fff);
-    color: #fff; white-space: nowrap;
-    transition: transform .15s ease, opacity .15s;
+    color: #fff; transition: transform .15s;
   }
   button:active { transform: scale(.95); }
   button.ghost {
@@ -84,27 +77,19 @@
     border: 1px solid rgba(255,255,255,.2);
     color: #ccc;
   }
-  .hint { font-size: 12px; color: #7777a0; margin-top: 18px; line-height: 1.7; }
+  .hint { font-size: 12px; color: #7777a0; margin-top: 16px; line-height: 1.7; }
   .code-big {
-    font-size: 34px; font-weight: 800; letter-spacing: 6px;
-    color: #ffd166; margin: 10px 0 4px;
+    font-size: 32px; font-weight: 800; letter-spacing: 5px;
+    color: #ffd166; margin: 8px 0;
     font-family: monospace;
   }
   .copy-tip { font-size: 12px; color: #7777a0; cursor: pointer; }
-
   #controls {
-    position: fixed; bottom: 14px; left: 0; right: 0;
-    text-align: center; color: rgba(255,255,255,.45);
+    position: fixed; bottom: 12px; left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,.4);
     font-size: 12px; z-index: 10; pointer-events: none;
-    line-height: 1.8;
   }
   #controls b { color: #ff9ecb; }
-
-  @media (max-width: 480px) {
-    .box { padding: 24px 18px; }
-    .code-big { font-size: 28px; letter-spacing: 4px; }
-    #controls { font-size: 11px; }
-  }
 </style>
 </head>
 <body>
@@ -117,34 +102,29 @@
 </div>
 
 <div id="controls">
-  <b>你(蓝)</b>：WASD / 方向键移动 &nbsp;·&nbsp; 手机按住屏幕左/右半边
+  <b>你(蓝)</b>：A/D 或 ←/→ 移动 · W/↑ 跳 · 手机按屏幕左右两边
 </div>
 
 <div id="panel">
   <div class="box" id="boxStart">
-    <h1>🏃 双人火柴人 · 联网互动</h1>
-    <p>创建房间，把房间号发给对方；<br>对方输入同一个房间号即可加入。</p >
+    <h1>🏃 双人联机 · 火柴人冒险</h1>
+    <p>创建一个房间，把房间号发给对方，<br>对方输入相同房间号即可加入。</p >
     <div class="row">
-      <input id="roomInput" maxlength="12" placeholder="房间号 (如 love520)" value="love520">
+      <input id="roomInput" maxlength="10" placeholder="房间号" value="520">
     </div>
     <div class="row">
       <button id="createBtn" style="flex:1">创建房间</button>
       <button id="joinBtn" class="ghost" style="flex:1">加入房间</button>
     </div>
-    <div class="hint">
-      同一房间号 = 同一世界 🌍<br>
-      建议用英文+数字，最长 12 位
-    </div>
+    <div class="hint">同一房间号 = 同一世界 🌍<br>建议用英文字母或数字</div>
   </div>
 
   <div class="box hidden" id="boxWait">
     <h1>等待对方加入…</h1>
-    <p>把下面的房间号发给对方：</p >
+    <p>把房间号发给对方：</p >
     <div class="code-big" id="myRoomCode">-----</div>
     <div class="copy-tip" id="copyTip">点击复制</div>
-    <div style="margin-top:20px">
-      <button class="ghost" id="cancelBtn" style="width:100%">取消</button>
-    </div>
+    <button class="ghost" id="cancelBtn" style="width:100%;margin-top:18px">取消</button>
   </div>
 </div>
 
@@ -164,9 +144,26 @@
   window.addEventListener('resize', resize);
   resize();
 
-  const GROUND_OFFSET = 90;
-  const MOVE_SPEED = 4;
-  const SEND_INTERVAL = 50;
+  // ===== 世界参数 =====
+  const GRAVITY = 0.7;
+  const JUMP_POWER = -13;
+  const MOVE_SPEED = 4.5;
+  const GROUND_OFFSET = 80;
+  const SEND_INTERVAL = 40;
 
+  // ===== 我 =====
   const me = {
-    x: W * 0.35, y: 0, vx: 0, facing: 1,
+    x: W * 0.35, y: 0, vx: 0, vy: 0,
+    facing: 1, onGround: true,
+    walkPhase: 0, color: '#6ec6ff', name: '你'
+  };
+  // ===== 对方 =====
+  const other = {
+    x: W * 0.65, y: 0, vx: 0, vy: 0,
+    facing: -1, onGround: true,
+    walkPhase: 0, color: '#ff7a8a', name: '对方', active: false
+  };
+
+  const keys = { left: false, right: false, jump: false };
+
+  let peer
