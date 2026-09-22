@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -15,29 +16,6 @@
   }
   canvas { display: block; }
 
-  /* 上传头像按钮 */
-  #uploadBox {
-    position: fixed; top: 14px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    display: flex; align-items: center; gap: 10px;
-    background: rgba(0,0,0,.55);
-    padding: 8px 14px;
-    border-radius: 999px;
-    color: #fff; font-size: 13px;
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,.1);
-  }
-  #uploadBox label {
-    cursor: pointer;
-    background: linear-gradient(135deg,#ff8fc0,#b18fff);
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 12px;
-  }
-  #fileInput { display: none; }
-
   #tip {
     position: fixed; bottom: 14px; left: 0; right: 0;
     text-align: center; color: rgba(255,255,255,.4);
@@ -49,12 +27,6 @@
 <body>
 
 <canvas id="game"></canvas>
-
-<div id="uploadBox">
-  <span>🖼️ 换头像</span>
-  <label for="fileInput">选择图片</label>
-  <input type="file" id="fileInput" accept="image/*">
-</div>
 
 <div id="tip">
   <b>你</b>：A / ← 向左 &nbsp;·&nbsp; D / → 向右 &nbsp;·&nbsp; 手机按住屏幕左右两边
@@ -75,14 +47,11 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // ===== 参数 =====
   const MOVE_SPEED = 4.5;
   const GROUND_OFFSET = 100;
 
-  // ===== 火柴人 =====
   const player = {
     x: W * 0.5,
-    y: 0,
     vx: 0,
     facing: 1,
     walkPhase: 0,
@@ -90,101 +59,108 @@
     name: '我'
   };
 
-  // ===== 头像图片 =====
-  const headImg = new Image();
-  let headReady = false;
-  let headCanvas = null;
+  function groundY() { return H - GROUND_OFFSET; }
 
-  // 默认头像（如果用户不上传，就用一个默认的可爱笑脸）
-  function makeDefaultHead() {
-    const c = document.createElement('canvas');
-    c.width = 128; c.height = 128;
-    const g = c.getContext('2d');
+  // ===== 内置头像（画在 canvas 上） =====
+  const headCanvas = document.createElement('canvas');
+  headCanvas.width = 128;
+  headCanvas.height = 128;
+
+  (function drawHead() {
+    const g = headCanvas.getContext('2d');
+
     // 圆形底
     const grad = g.createRadialGradient(64, 50, 10, 64, 64, 64);
     grad.addColorStop(0, '#ffe9b0');
     grad.addColorStop(1, '#ffb07a');
     g.fillStyle = grad;
-    g.beginPath(); g.arc(64, 64, 64, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
+
     // 眼睛
     g.fillStyle = '#3a2a1a';
-    g.beginPath(); g.arc(46, 58, 7, 0, Math.PI*2); g.fill();
-    g.beginPath(); g.arc(82, 58, 7, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(46, 58, 7, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(82, 58, 7, 0, Math.PI * 2); g.fill();
+
     // 腮红
     g.fillStyle = 'rgba(255,120,140,.7)';
-    g.beginPath(); g.arc(36, 76, 9, 0, Math.PI*2); g.fill();
-    g.beginPath(); g.arc(92, 76, 9, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(36, 76, 9, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(92, 76, 9, 0, Math.PI * 2); g.fill();
+
     // 微笑
     g.strokeStyle = '#3a2a1a';
     g.lineWidth = 3.5; g.lineCap = 'round';
     g.beginPath(); g.arc(64, 72, 18, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
-    // 返回图片
-    const img = new Image();
-    img.src = c.toDataURL();
-    return img;
+
+    // 外圈
+    g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.stroke();
+  })();
+
+  // ===== 键盘 =====
+  const keys = { left: false, right: false };
+  window.addEventListener('keydown', function (e) {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft') { keys.left = true; e.preventDefault(); }
+    if (k === 'd' || k === 'arrowright') { keys.right = true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', function (e) {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft') { keys.left = false; e.preventDefault(); }
+    if (k === 'd' || k === 'arrowright') { keys.right = false; e.preventDefault(); }
+  });
+
+  // ===== 触摸 =====
+  let tL = false, tR = false;
+  function pointer(e, down) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    if (x < W / 2) { tL = down; tR = false; }
+    else { tR = down; tL = false; }
+  }
+  canvas.addEventListener('touchstart', function (e) { pointer(e, true); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchend',   function (e) { pointer(e, false); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchmove',  function (e) { pointer(e, true); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('mousedown',  function (e) { pointer(e, true); });
+  canvas.addEventListener('mouseup',    function (e) { pointer(e, false); });
+  canvas.addEventListener('mouseleave', function () { tL = tR = false; });
+
+  // ===== 更新 =====
+  function update() {
+    const left  = keys.left  || tL;
+    const right = keys.right || tR;
+
+    if (left && !right) { player.vx = -MOVE_SPEED; player.facing = -1; }
+    else if (right && !left) { player.vx = MOVE_SPEED; player.facing = 1; }
+    else { player.vx = 0; }
+
+    player.x += player.vx;
+    if (player.vx !== 0) player.walkPhase += 0.28;
+
+    const margin = 40;
+    if (player.x < margin) player.x = margin;
+    if (player.x > W - margin) player.x = W - margin;
   }
 
-  // 处理成圆形头像
-  function processHeadToCircle(img) {
-    const size = 128;
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const g = c.getContext('2d');
+  // ===== 绘制 =====
+  function drawPlayer() {
+    const x = player.x;
+    const y = groundY();
+    const walk = Math.sin(player.walkPhase) * (player.vx !== 0 ? 1 : 0);
 
-    // 计算居中裁剪
-    const iw = img.width, ih = img.height;
-    const scale = Math.max(size / iw, size / ih);
-    const dw = iw * scale, dh = ih * scale;
-    const dx = (size - dw) / 2, dy = (size - dh) / 2;
+    const headR = 32;
+    const hipY = y - 56;
+    const shoulderY = y - 104;
+    const headCY = shoulderY - headR - 6;
 
-    // 圆形裁剪路径
-    g.save();
-    g.beginPath();
-    g.arc(size/2, size/2, size/2, 0, Math.PI*2);
-    g.closePath();
-    g.clip();
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = player.color;
+    ctx.fillStyle = player.color;
+    ctx.shadowColor = player.color;
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 6;
 
-    // 画图
-    g.drawImage(img, dx, dy, dw, dh);
-    g.restore();
-
-    // 外圈描边
-    g.beginPath();
-    g.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = 4;
-    g.stroke();
-
-    return c;
-  }
-
-  // 初始化默认头像
-  headCanvas = (function () {
-    const img = makeDefaultHead();
-    // 等待默认头像生成完毕
-    const c = document.createElement('canvas');
-    c.width = 128; c.height = 128;
-    const g = c.getContext('2d');
-    // 直接画默认头像（不用异步）
-    g.save();
-    g.beginPath(); g.arc(64, 64, 64, 0, Math.PI*2); g.clip();
-    g.fillStyle = '#ffd9a0';
-    g.fillRect(0, 0, 128, 128);
-    g.restore();
-
-    // 用默认头功能重新画一次，但为了保证同步，直接在初始化时用图片元素
-    // 由于 Image 需要异步加载，用 canvas 手动绘制默认头像
-    const cc = document.createElement('canvas');
-    cc.width = 128; cc.height = 128;
-    const gg = cc.getContext('2d');
-    // 圆形底
-    const grad = gg.createRadialGradient(64, 50, 10, 64, 64, 64);
-    grad.addColorStop(0, '#ffe9b0');
-    grad.addColorStop(1, '#ffb07a');
-    gg.fillStyle = grad;
-    gg.beginPath(); gg.arc(64, 64, 64, 0, Math.PI*2); gg.fill();
-    // 眼睛
-    gg.fillStyle = '#3a2a1a';
-    gg.beginPath(); gg.arc(46, 58, 7, 0, Math.PI*2); gg.fill();
-    gg.beginPath(); gg.arc(82, 58, 7, 0, Math.PI*2); gg.fill();
-    // 腮红
+    const swing = walk * 18;
+    ctx.beginPath();
+    ctx.moveTo(x, 
