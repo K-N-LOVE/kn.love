@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -17,7 +18,6 @@
   }
   canvas { display: block; width: 100%; height: 100%; }
 
-  /* 顶部状态栏 */
   #hud {
     position: fixed; top: 0; left: 0; right: 0;
     padding: 12px 16px;
@@ -36,7 +36,6 @@
   #status.connecting { background: rgba(255,200,60,.85); color: #530; }
   #roomTag { opacity: .85; }
 
-  /* 开始面板 */
   #panel {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -91,9 +90,8 @@
     color: #ffd166; margin: 10px 0 4px;
     font-family: monospace;
   }
-  .copy-tip { font-size: 12px; color: #7777a0; }
+  .copy-tip { font-size: 12px; color: #7777a0; cursor: pointer; }
 
-  /* 操作提示（底部） */
   #controls {
     position: fixed; bottom: 14px; left: 0; right: 0;
     text-align: center; color: rgba(255,255,255,.45);
@@ -119,16 +117,15 @@
 </div>
 
 <div id="controls">
-  <b>你(蓝)</b>：WASD / 方向键移动 &nbsp;·&nbsp; <b>对方(红)</b>：自动同步
+  <b>你(蓝)</b>：WASD / 方向键移动 &nbsp;·&nbsp; 手机按住屏幕左/右半边
 </div>
 
-<!-- 开始面板 -->
 <div id="panel">
   <div class="box" id="boxStart">
     <h1>🏃 双人火柴人 · 联网互动</h1>
-    <p>创建房间，把房间号发给对方；<br>对方输入同一个房间号即可加入。</p>
+    <p>创建房间，把房间号发给对方；<br>对方输入同一个房间号即可加入。</p >
     <div class="row">
-      <input id="roomInput" maxlength="6" placeholder="房间号 (如 520)" value="520">
+      <input id="roomInput" maxlength="12" placeholder="房间号 (如 love520)" value="love520">
     </div>
     <div class="row">
       <button id="createBtn" style="flex:1">创建房间</button>
@@ -136,13 +133,13 @@
     </div>
     <div class="hint">
       同一房间号 = 同一世界 🌍<br>
-      建议用英文字母或数字，最长 6 位
+      建议用英文+数字，最长 12 位
     </div>
   </div>
 
   <div class="box hidden" id="boxWait">
     <h1>等待对方加入…</h1>
-    <p>把下面的房间号发给对方：</p>
+    <p>把下面的房间号发给对方：</p >
     <div class="code-big" id="myRoomCode">-----</div>
     <div class="copy-tip" id="copyTip">点击复制</div>
     <div style="margin-top:20px">
@@ -151,12 +148,11 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function () {
   'use strict';
 
-  // ========== 基础设置 ==========
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
@@ -168,6 +164,9 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // ========== 游戏状态 ==========
-  const GROUND_OFFSET = 90;      // 地面距底部距离
+  const GROUND_OFFSET = 90;
+  const MOVE_SPEED = 4;
+  const SEND_INTERVAL = 50;
 
+  const me = {
+    x: W * 0.35, y: 0, vx: 0, facing: 1,
