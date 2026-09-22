@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>双人联机 · 火柴人冒险</title>
+<title>我的火柴人</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -15,120 +15,51 @@
   }
   canvas { display: block; }
 
-  #hud {
-    position: fixed; top: 0; left: 0; right: 0;
-    padding: 10px 16px;
-    display: flex; justify-content: space-between; align-items: center;
+  /* 上传头像按钮 */
+  #uploadBox {
+    position: fixed; top: 14px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,.55);
+    padding: 8px 14px;
+    border-radius: 999px;
     color: #fff; font-size: 13px;
-    background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent);
-    pointer-events: none; z-index: 10;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.1);
   }
-  #status {
-    padding: 6px 14px; border-radius: 999px;
-    background: rgba(0,0,0,.55); font-weight: 600;
-  }
-  #status.online { background: rgba(70,220,130,.9); color: #053; }
-  #status.connecting { background: rgba(255,200,60,.9); color: #530; }
-  #roomTag { opacity: .8; }
-
-  #panel {
-    position: fixed; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(8,8,20,.92);
-    backdrop-filter: blur(8px);
-    z-index: 20; padding: 20px;
-  }
-  #panel.hidden { display: none; }
-  .box {
-    width: min(400px, 100%);
-    background: #1e1e38;
-    border-radius: 22px;
-    padding: 28px 24px;
-    color: #eee;
-    box-shadow: 0 30px 70px -20px rgba(0,0,0,.9);
-    border: 1px solid rgba(255,255,255,.08);
-    text-align: center;
-  }
-  .box h1 {
-    font-size: 21px; margin-bottom: 6px;
-    background: linear-gradient(135deg,#ff9ecb,#9ecbff);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .box p { font-size: 13px; color: #9a9ab8; margin-bottom: 20px; line-height: 1.6; }
-  .row { display: flex; gap: 10px; margin-bottom: 12px; }
-  input {
-    flex: 1; padding: 13px 16px;
-    border-radius: 13px; border: 1px solid rgba(255,255,255,.12);
-    background: rgba(0,0,0,.3); color: #fff;
-    font-size: 16px; outline: none; text-align: center;
-    letter-spacing: 2px;
-  }
-  input:focus { border-color: #ff9ecb; }
-  button {
-    padding: 13px 18px; border: none; border-radius: 13px;
-    font-size: 15px; font-weight: 700; cursor: pointer;
+  #uploadBox label {
+    cursor: pointer;
     background: linear-gradient(135deg,#ff8fc0,#b18fff);
-    color: #fff; transition: transform .15s;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
   }
-  button:active { transform: scale(.95); }
-  button.ghost {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,.2);
-    color: #ccc;
-  }
-  .hint { font-size: 12px; color: #7777a0; margin-top: 16px; line-height: 1.7; }
-  .code-big {
-    font-size: 32px; font-weight: 800; letter-spacing: 5px;
-    color: #ffd166; margin: 8px 0;
-    font-family: monospace;
-  }
-  .copy-tip { font-size: 12px; color: #7777a0; cursor: pointer; }
-  #controls {
-    position: fixed; bottom: 12px; left: 0; right: 0;
+  #fileInput { display: none; }
+
+  #tip {
+    position: fixed; bottom: 14px; left: 0; right: 0;
     text-align: center; color: rgba(255,255,255,.4);
     font-size: 12px; z-index: 10; pointer-events: none;
   }
-  #controls b { color: #ff9ecb; }
+  #tip b { color: #ff9ecb; }
 </style>
 </head>
 <body>
 
 <canvas id="game"></canvas>
 
-<div id="hud">
-  <div id="status">未连接</div>
-  <div id="roomTag"></div>
+<div id="uploadBox">
+  <span>🖼️ 换头像</span>
+  <label for="fileInput">选择图片</label>
+  <input type="file" id="fileInput" accept="image/*">
 </div>
 
-<div id="controls">
-  <b>你(蓝)</b>：A/D 或 ←/→ 移动 · W/↑ 跳 · 手机按屏幕左右两边
+<div id="tip">
+  <b>你</b>：A / ← 向左 &nbsp;·&nbsp; D / → 向右 &nbsp;·&nbsp; 手机按住屏幕左右两边
 </div>
 
-<div id="panel">
-  <div class="box" id="boxStart">
-    <h1>🏃 双人联机 · 火柴人冒险</h1>
-    <p>创建一个房间，把房间号发给对方，<br>对方输入相同房间号即可加入。</p >
-    <div class="row">
-      <input id="roomInput" maxlength="10" placeholder="房间号" value="520">
-    </div>
-    <div class="row">
-      <button id="createBtn" style="flex:1">创建房间</button>
-      <button id="joinBtn" class="ghost" style="flex:1">加入房间</button>
-    </div>
-    <div class="hint">同一房间号 = 同一世界 🌍<br>建议用英文字母或数字</div>
-  </div>
-
-  <div class="box hidden" id="boxWait">
-    <h1>等待对方加入…</h1>
-    <p>把房间号发给对方：</p >
-    <div class="code-big" id="myRoomCode">-----</div>
-    <div class="copy-tip" id="copyTip">点击复制</div>
-    <button class="ghost" id="cancelBtn" style="width:100%;margin-top:18px">取消</button>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -144,26 +75,116 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // ===== 世界参数 =====
-  const GRAVITY = 0.7;
-  const JUMP_POWER = -13;
+  // ===== 参数 =====
   const MOVE_SPEED = 4.5;
-  const GROUND_OFFSET = 80;
-  const SEND_INTERVAL = 40;
+  const GROUND_OFFSET = 100;
 
-  // ===== 我 =====
-  const me = {
-    x: W * 0.35, y: 0, vx: 0, vy: 0,
-    facing: 1, onGround: true,
-    walkPhase: 0, color: '#6ec6ff', name: '你'
-  };
-  // ===== 对方 =====
-  const other = {
-    x: W * 0.65, y: 0, vx: 0, vy: 0,
-    facing: -1, onGround: true,
-    walkPhase: 0, color: '#ff7a8a', name: '对方', active: false
+  // ===== 火柴人 =====
+  const player = {
+    x: W * 0.5,
+    y: 0,
+    vx: 0,
+    facing: 1,
+    walkPhase: 0,
+    color: '#6ec6ff',
+    name: '我'
   };
 
-  const keys = { left: false, right: false, jump: false };
+  // ===== 头像图片 =====
+  const headImg = new Image();
+  let headReady = false;
+  let headCanvas = null;
 
-  let peer
+  // 默认头像（如果用户不上传，就用一个默认的可爱笑脸）
+  function makeDefaultHead() {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const g = c.getContext('2d');
+    // 圆形底
+    const grad = g.createRadialGradient(64, 50, 10, 64, 64, 64);
+    grad.addColorStop(0, '#ffe9b0');
+    grad.addColorStop(1, '#ffb07a');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(64, 64, 64, 0, Math.PI*2); g.fill();
+    // 眼睛
+    g.fillStyle = '#3a2a1a';
+    g.beginPath(); g.arc(46, 58, 7, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(82, 58, 7, 0, Math.PI*2); g.fill();
+    // 腮红
+    g.fillStyle = 'rgba(255,120,140,.7)';
+    g.beginPath(); g.arc(36, 76, 9, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(92, 76, 9, 0, Math.PI*2); g.fill();
+    // 微笑
+    g.strokeStyle = '#3a2a1a';
+    g.lineWidth = 3.5; g.lineCap = 'round';
+    g.beginPath(); g.arc(64, 72, 18, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+    // 返回图片
+    const img = new Image();
+    img.src = c.toDataURL();
+    return img;
+  }
+
+  // 处理成圆形头像
+  function processHeadToCircle(img) {
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const g = c.getContext('2d');
+
+    // 计算居中裁剪
+    const iw = img.width, ih = img.height;
+    const scale = Math.max(size / iw, size / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (size - dw) / 2, dy = (size - dh) / 2;
+
+    // 圆形裁剪路径
+    g.save();
+    g.beginPath();
+    g.arc(size/2, size/2, size/2, 0, Math.PI*2);
+    g.closePath();
+    g.clip();
+
+    // 画图
+    g.drawImage(img, dx, dy, dw, dh);
+    g.restore();
+
+    // 外圈描边
+    g.beginPath();
+    g.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 4;
+    g.stroke();
+
+    return c;
+  }
+
+  // 初始化默认头像
+  headCanvas = (function () {
+    const img = makeDefaultHead();
+    // 等待默认头像生成完毕
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const g = c.getContext('2d');
+    // 直接画默认头像（不用异步）
+    g.save();
+    g.beginPath(); g.arc(64, 64, 64, 0, Math.PI*2); g.clip();
+    g.fillStyle = '#ffd9a0';
+    g.fillRect(0, 0, 128, 128);
+    g.restore();
+
+    // 用默认头功能重新画一次，但为了保证同步，直接在初始化时用图片元素
+    // 由于 Image 需要异步加载，用 canvas 手动绘制默认头像
+    const cc = document.createElement('canvas');
+    cc.width = 128; cc.height = 128;
+    const gg = cc.getContext('2d');
+    // 圆形底
+    const grad = gg.createRadialGradient(64, 50, 10, 64, 64, 64);
+    grad.addColorStop(0, '#ffe9b0');
+    grad.addColorStop(1, '#ffb07a');
+    gg.fillStyle = grad;
+    gg.beginPath(); gg.arc(64, 64, 64, 0, Math.PI*2); gg.fill();
+    // 眼睛
+    gg.fillStyle = '#3a2a1a';
+    gg.beginPath(); gg.arc(46, 58, 7, 0, Math.PI*2); gg.fill();
+    gg.beginPath(); gg.arc(82, 58, 7, 0, Math.PI*2); gg.fill();
+    // 腮红
