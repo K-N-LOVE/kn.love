@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>双人火柴人 · 联网互动</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #1a1a2e;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: #fff; font-size: 14px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+    pointer-events: none;
+    z-index: 10;
+  }
+  #status {
+    background: rgba(0,0,0,.5);
+    padding: 6px 14px; border-radius: 999px;
+    font-weight: 600; letter-spacing: .5px;
+  }
+  #status.online { background: rgba(80,220,120,.85); color: #063; }
+  #status.connecting { background: rgba(255,200,60,.85); color: #530; }
+  #roomTag { opacity: .85; }
+
+  #panel {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,10,25,.9);
+    backdrop-filter: blur(8px);
+    z-index: 20;
+    padding: 20px;
+  }
+  #panel.hidden { display: none; }
+  .box {
+    width: min(420px, 100%);
+    background: #252543;
+    border-radius: 24px;
+    padding: 30px 26px;
+    color: #eee;
+    box-shadow: 0 30px 70px -20px rgba(0,0,0,.9);
+    border: 1px solid rgba(255,255,255,.08);
+    text-align: center;
+  }
+  .box h1 {
+    font-size: 22px; margin-bottom: 6px;
+    background: linear-gradient(135deg,#ff9ecb,#9ecbff);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .box p { font-size: 13px; color: #9a9ab8; margin-bottom: 22px; line-height: 1.6; }
+  .row { display: flex; gap: 10px; margin-bottom: 14px; }
+  input {
+    flex: 1; padding: 13px 16px;
+    border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.3); color: #fff;
+    font-size: 16px; outline: none; text-align: center;
+    letter-spacing: 2px;
+  }
+  input:focus { border-color: #ff9ecb; }
+  button {
+    padding: 13px 20px; border: none; border-radius: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    background: linear-gradient(135deg,#ff8fc0,#b18fff);
+    color: #fff; white-space: nowrap;
+    transition: transform .15s ease, opacity .15s;
+  }
+  button:active { transform: scale(.95); }
+  button.ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.2);
+    color: #ccc;
+  }
+  .hint { font-size: 12px; color: #7777a0; margin-top: 18px; line-height: 1.7; }
+  .code-big {
+    font-size: 34px; font-weight: 800; letter-spacing: 6px;
+    color: #ffd166; margin: 10px 0 4px;
+    font-family: monospace;
+  }
+  .copy-tip { font-size: 12px; color: #7777a0; cursor: pointer; }
+
+  #controls {
+    position: fixed; bottom: 14px; left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,.45);
+    font-size: 12px; z-index: 10; pointer-events: none;
+    line-height: 1.8;
+  }
+  #controls b { color: #ff9ecb; }
+
+  @media (max-width: 480px) {
+    .box { padding: 24px 18px; }
+    .code-big { font-size: 28px; letter-spacing: 4px; }
+    #controls { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="status">未连接</div>
+  <div id="roomTag"></div>
+</div>
+
+<div id="controls">
+  <b>你(蓝)</b>：WASD / 方向键移动 &nbsp;·&nbsp; 手机按住屏幕左/右半边
+</div>
+
+<div id="panel">
+  <div class="box" id="boxStart">
+    <h1>🏃 双人火柴人 · 联网互动</h1>
+    <p>创建房间，把房间号发给对方；<br>对方输入同一个房间号即可加入。</p>
+    <div class="row">
+      <input id="roomInput" maxlength="12" placeholder="房间号 (如 love520)" value="love520">
+    </div>
+    <div class="row">
+      <button id="createBtn" style="flex:1">创建房间</button>
+      <button id="joinBtn" class="ghost" style="flex:1">加入房间</button>
+    </div>
+    <div class="hint">
+      同一房间号 = 同一世界 🌍<br>
+      建议用英文+数字，最长 12 位
+    </div>
+  </div>
+
+  <div class="box hidden" id="boxWait">
+    <h1>等待对方加入…</h1>
+    <p>把下面的房间号发给对方：</p>
+    <div class="code-big" id="myRoomCode">-----</div>
+    <div class="copy-tip" id="copyTip">点击复制</div>
+    <div style="margin-top:20px">
+      <button class="ghost" id="cancelBtn" style="width:100%">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  let W = 0, H = 0;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const GROUND_OFFSET = 90;
+  const MOVE_SPEED = 4;
+  const SEND_INTERVAL = 50;
+
+  const me = {
+    x: W * 0.35, y: 0, vx: 0, facing: 1,
+    walking: false, walkPhase: 0,
+    color: '#6ec6ff', name: '你'
+  };
+  const other = {
+    x: W * 0.65, y: 0, facing: -1,
+    walking: false, walkPhase: 0,
+    color: '#ff7a8a', name: '对方', active: false
+  };
+
+  const keys = { left: false, right: false };
+
+  let peer = null;
+  let conn = null;
+  let isHost = false;
+  let roomId = '';
+  let sendTimer = null;
+
+  function groundY() { return H - GROUND_OFFSET; }
+
+  const panel      = document.getElementById('panel');
+  const boxStart   = document.getElementById('boxStart');
+  const boxWait    = document.getElementById('boxWait');
+  const roomInput  = document.getElementById('roomInput');
+  const myRoomCode = document.getElementById('myRoomCode');
+  const copyTip    = document.getElementById('copyTip');
+  const statusEl   = document.getElementById('status');
+  const roomTag    = document.getElementById('roomTag');
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = cls || '';
+  }
+
+  function showWait(code) {
+    boxStart.classList.add('hidden');
+    boxWait.classList.remove('hidden');
+    myRoomCode.textContent = code;
+    roomTag.textContent = '房间号：' + code;
+  }
+
+  function enterGame() {
+    panel.classList.add('hidden');
+    roomTag.textContent = '房间号：' + roomId;
+  }
+
+  copyTip.addEventListener('click', function () {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(roomId).then(function () {
+        copyTip.textContent = '✅ 已复制！';
+        setTimeout(function () { copyTip.textContent = '点击复制'; }, 1500);
+      }).catch(function () {});
+    }
+  });
+
+  // 房间号 -> Peer ID
+  function makePeerId(code) {
+    return 'stickman-' + String(code).replace(/[^a-zA-Z0-9_-]/g, '') + '-knlove';
+  }
+
+  // 使用国内可访问的免费信令服务器
+  const peerConfig = {
+    host: 'peerjs.92k.de',
+    port: 443,
+    secure: true,
+    path: '/',
+    debug: 2,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ]
+    }
+  };
+
+  document.getElementById('createBtn').addEventListener('click', function () {
+    const code = (roomInput.value || '').trim();
+    if (!code) { alert('请输入房间号'); return; }
+    if (code.length > 12) { alert('房间号最长 12 位'); return; }
+    isHost = true;
+    roomId = code;
+    startPeer(makePeerId(code), true);
+  });
+
+  document.getElementById('joinBtn').addEventListener('click', function () {
+    const code = (roomInput.value || '').trim();
+    if (!code) { alert('请输入房间号'); return; }
+    isHost = false;
+    roomId = code;
+    startPeer(null, false);
+  });
+
+  document.getElementById('cancelBtn').addEventListener('click', function () {
+    cleanup();
+    boxWait.classList.add('hidden');
+    boxStart.classList.remove('hidden');
+    setStatus('未连接', '');
+  });
+
+  function startPeer(peerId, asHost) {
+    cleanup();
+    setStatus('连接中…', 'connecting');
+
+    try {
+      peer = peerId
+        ? new Peer(peerId, peerConfig)
+        : new Peer(peerConfig);
+    } catch (e) {
+      alert('初始化失败，请刷新页面重试');
+      setStatus('未连接', '');
+      return;
+    }
+
+    // 超时处理
+    let timeout = setTimeout(function () {
+      if (!conn || !conn.open) {
+        alert('连接超时：可能是网络问题，请换个房间号重试，或检查网络。');
+        cleanup();
+        boxWait.classList.add('hidden');
+        boxStart.classList.remove('hidden');
+      }
+    }, 15000);
+
+    peer.on('open', function (id) {
+      if (asHost) {
+        showWait(roomId);
+        setStatus('等待对方…', 'connecting');
+      } else {
+        const targetId = makePeerId(roomId);
+        conn = peer.connect(targetId, { reliable: true });
+        setupConnection();
+      }
+    });
+
+    peer.on('connection', function (c) {
+      if (conn) { try { c.close(); } catch (e) {} return; }
+      conn = c;
+      setupConnection();
+    });
+
+    peer.on('error', function (err) {
+      console.error(err);
+      clearTimeout(timeout);
+      if (err.type === 'unavailable-id') {
+        alert('房间号已被使用，请换一个。');
+      } else if (err.type === 'peer-unavailable') {
+        alert('找不到房间：请确认对方已创建房间且房间号一致。');
+      } else if (err.type === 'network') {
+        alert('网络错误：服务器连不上，请检查网络或稍后重试。');
+      } else {
+        alert('连接错误：' + err.type);
+      }
+      setStatus('未连接', '');
+      boxWait.classList.add('hidden');
+      boxStart.classList.remove('hidden');
+    });
+
+    // 连接成功后清除超时
+    window._clearPeerTimeout = function () { clearTimeout(timeout); };
+  }
+
+  function setupConnection() {
+    if (!conn) return;
+
+    conn.on('open', function () {
+      if (window._clearPeerTimeout) window._clearPeerTimeout();
+      other.active = true;
+      setStatus('已连接 ✅', 'online');
+      enterGame();
+      startSending();
+      sendState();
+    });
+
+    conn.on('data', function (data) {
+      if (!data || data.t !== 's') return;
+      other.x      = data.x;
+      other.facing = data.f;
+      other.walking = data.w;
+      other.active = true;
+      if (other.walking) other.walkPhase += 0.25;
+    });
+
+    conn.on('close', function () {
+      other.active = false;
+      setStatus('对方已离开', '');
+      stopSending();
+    });
+
+    conn.on('error', function (err) {
+      console.error('连接错误', err);
+    });
+  }
+
+  function sendState() {
+    if (!conn || !conn.open) return;
+    try {
+      conn.send({
+        t: 's',
+        x: Math.round(me.x * 100) / 100,
+        f: me.facing,
+        w: me.walking
+      });
+    } catch (e) {}
+  }
+
+  function startSending() {
+    stopSending();
+    sendTimer = setInterval(sendState, SEND_INTERVAL);
+  }
+  function stopSending() {
+    if (sendTimer) { clearInterval(sendTimer); sendTimer = null; }
+  }
+
+  function cleanup() {
+    stopSending();
+    if (conn) { try { conn.close(); } catch (e) {} conn = null; }
+    if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+    other.active = false;
+    setStatus('未连接', '');
+  }
+
+  // 键盘
+  window.addEventListener('keydown', function (e) {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft')  { keys.left = true;  e.preventDefault(); }
+    if (k === 'd' || k === 'arrowright') { keys.right = true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', function (e) {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'arrowleft')  { keys.left = false;  e.preventDefault(); }
+    if (k === 'd' || k === 'arrowright') { keys.right = false; e.preventDefault(); }
+  });
+
+  // 触摸
+  let touchLeft = false, touchRight = false;
+  function handlePointer(e, down) {
+    if (panel && !panel.classList.contains('hidden')) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    if (x < W / 2) { touchLeft = down; touchRight = false; }
+    else { touchRight = down; touchLeft = false; }
+  }
+  canvas.addEventListener('touchstart', function (e) { handlePointer(e, true); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchend',   function (e) { handlePointer(e, false); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchmove',  function (e) { handlePointer(e, true);  e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('mousedown',  function (e) { handlePointer(e, true); });
+  canvas.addEventListener('mouseup',    function (e) { handlePointer(e, false); });
+  canvas.addEventListener('mouseleave', function () { touchLeft = touchRight = false; });
+
+  function update() {
+    const left  = keys.left  || touchLeft;
+    const right = keys.right || touchRight;
+
+    if (left && !right) { me.vx = -MOVE_SPEED; me.facing = -1; }
+    else if (right && !left) { me.vx = MOVE_SPEED; me.facing = 1; }
+    else { me.vx = 0; }
+
+    me.x += me.vx;
+    me.walking = me.vx !== 0;
+    if (me.walking) me.walkPhase += 0.25;
+
+    const margin = 30;
+    if (me.x < margin) me.x = margin;
+    if (me.x > W - margin) me.x = W - margin;
+
+    if (other.walking) other.walkPhase += 0.25;
+  }
+
+  function drawStickman(s, isMe) {
+    const gy = groundY();
+    const x = s.x, y = gy;
+
+    const walk = s.walking ? Math.sin(s.walkPhase) : 0;
+    const bob  = s.walking ? Math.abs(Math.sin(s.walkPhase)) * 3 : 0;
+
+    const headR   = 16;
+    const neckY   = y - 92 + bob;
+    const headCY  = neckY - headR - 4;
+    const hipY    = y - 48;
+    const shoulderY = neckY + 8;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = s.color;
+    ctx.fillStyle = s.color;
+    ctx.shadowColor = s.color;
+    ctx.shadowBlur = isMe ? 14 : 8;
+    ctx.lineWidth = 5;
+
+    const swing = walk * 18;
+    ctx.beginPath();
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(x - 12 - swing, y);
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(x + 12 + swing, y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(x, shoulderY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 4);
+    ctx.lineTo(x - 16 + swing * 0.8, shoulderY + 26);
+    ctx.moveTo(x, shoulderY + 4);
+    ctx.lineTo(x + 16 - swing * 0.8, shoulderY + 26);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, headCY, headR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fill();
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    const eyeOff = s.facing * 5;
+    ctx.beginPath();
+    ctx.arc(x - 6 + eyeOff, headCY - 3, 2.6, 0, Math.PI * 2);
+    ctx.arc(x + 6 + eyeOff, headCY - 3, 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = s.color;
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 13px -apple-system, "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = isMe ? '#bfe4ff' : '#ffc4cc';
+    ctx.fillText(s.name, x, headCY - headR - 12);
+
+    ctx.restore();
+  }
+
+  function draw() {
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#1a1a2e');
+    bg.addColorStop(0.6, '#20203a');
+    bg.addColorStop(1, '#2a2a48');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    for (let i = 0; i < 60; i++) {
+      const sx = (i * 137.5) % W;
+      const sy = (i * 91.3) % (H * 0.55);
+      ctx.fillRect(sx, sy, 1.6, 1.6);
+    }
+
+    const gy = groundY();
+    const gGrad = ctx.createLinearGradient(0, gy, 0, H);
+    gGrad.addColorStop(0, 'rgba(110,198,255,0.28)');
+    gGrad.addColorStop(1, 'rgba(110,198,255,0.02)');
+    ctx.fillStyle = gGrad;
+    ctx.fillRect(0, gy, W, H - gy);
+
+    ctx.strokeStyle = 'rgba(140,200,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(110,198,255,0.9)';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(W, gy);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    if (other.active) drawStickman(other, false);
+    drawStickman(me, true);
+
+    if (!other.active && panel && panel.classList.contains('hidden')) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '14px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('等待对方连接…', W / 2, 40);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  me.x = W * 0.35;
+  other.x = W * 0.65;
+})();
+</script>
+</body>
+</html>
